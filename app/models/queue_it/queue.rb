@@ -49,6 +49,8 @@ module QueueIt
         old_tail_node.update!(kind: :head, parent_node: nil)
         old_head_node
       end
+
+      after_commit_handler
     end
 
     def get_next_by_in_generic_queue(nodable_attribute, attribute_value)
@@ -78,6 +80,8 @@ module QueueIt
         old_second_node.update!(kind: :head, parent_node: nil)
         old_head_node
       end
+
+      after_commit_handler
     end
 
     def push_node_when_queue_length_is_zero(nodable)
@@ -85,6 +89,8 @@ module QueueIt
         lock!
         nodes.create!(nodable: nodable, kind: :head)
       end
+
+      after_commit_handler
     end
 
     def push_node_when_queue_length_is_one(nodable, in_head)
@@ -96,6 +102,8 @@ module QueueIt
           nodes.create!(nodable: nodable, kind: :tail, parent_node: head_node)
         end
       end
+
+      after_commit_handler
     end
 
     def push_in_head(nodable)
@@ -107,6 +115,8 @@ module QueueIt
         new_head_node = nodes.create!(nodable: nodable, kind: :head)
         old_head_node.update!(parent_node: new_head_node)
       end
+
+      after_commit_handler
     end
 
     def push_in_tail(nodable)
@@ -116,6 +126,8 @@ module QueueIt
         old_tail_node.update!(kind: :any)
         nodes.create!(nodable: nodable, kind: :tail, parent_node: old_tail_node)
       end
+
+      after_commit_handler
     end
 
     private
@@ -132,6 +144,10 @@ module QueueIt
         old_next_node.update!(parent_node: old_parent_node)
         old_current_node
       end
+    end
+
+    def after_commit_handler
+      QueueIt.queue_callback.new.match(queable)
     end
   end
 end

@@ -2,7 +2,7 @@ module QueueIt::QueableByName
   extend ActiveSupport::Concern
 
   included do
-    has_many :queue,
+    has_many :queues,
             as: :queable, inverse_of: :queable, dependent: :destroy, class_name: 'QueueIt::Queue'
 
     def find_or_create_queue!(name)
@@ -58,8 +58,10 @@ module QueueIt::QueableByName
       formatted_generic_queue(name, nodable_attribute)
     end
 
-    def delete_queue_nodes
-      queue.nodes.delete_all
+    def delete_queue_nodes(name)
+      local_queue(name).nodes.delete_all
+      local_queue(name).count_of_nodes = 0
+      local_queue(name).save
     end
 
     def remove_from_queue(name, nodable)
@@ -71,6 +73,8 @@ module QueueIt::QueableByName
           remove_node(node)
         end
       end
+
+      after_commit_handler
     end
 
     def connected_nodes(name)
@@ -114,5 +118,9 @@ module QueueIt::QueableByName
       current_node = current_node.child_node
     end
     array
+  end
+
+  def after_commit_handler
+    QueueIt.queue_callback.new.match(self)
   end
 end
