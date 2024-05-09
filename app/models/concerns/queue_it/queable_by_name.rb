@@ -64,6 +64,36 @@ module QueueIt::QueableByName
       local_queue(name).save
     end
 
+    def pop_from_queue(name)
+      nodable = nil
+      ActiveRecord::Base.transaction do
+        local_queue(name).lock!
+
+        nodable = get_next_in_queue(name)
+        local_queue(name).nodes.where(nodable: nodable).find_each do |node|
+          remove_node(node)
+        end
+      end
+
+      after_commit_handler(name, nodable, "remove") if nodable.present?
+      nodable
+    end
+
+    def pop_from_queue_by(name, nodable_attribute, attribute_value)
+      nodable = nil
+      ActiveRecord::Base.transaction do
+        local_queue(name).lock!
+
+        nodable = get_next_in_queue_by(name, nodable_attribute, attribute_value)
+        local_queue(name).nodes.where(nodable: nodable).find_each do |node|
+          remove_node(node)
+        end
+      end
+
+      after_commit_handler(name, nodable, "remove") if nodable.present?
+      nodable
+    end
+
     def remove_from_queue(name, nodable)
       return if local_queue(name).empty? || local_queue(name).nodes.where(nodable: nodable).empty?
 
@@ -74,7 +104,8 @@ module QueueIt::QueableByName
         end
       end
 
-      after_commit_handler
+      after_commit_handler(name, nodable, "remove")
+      nodable
     end
 
     def connected_nodes(name)
@@ -88,12 +119,13 @@ module QueueIt::QueableByName
     end
 
     def local_queue(name)
-      @local_queues ||= {}
+      # @local_queues ||= {}
 
-      return @local_queues[name] if @local_queues[name]
-      @local_queues[name] = find_or_create_queue!(name)
+      # return @local_queues[name] if @local_queues[name]
+      # @local_queues[name] = find_or_create_queue!(name)
 
-      @local_queues[name]
+      # @local_queues[name]
+      find_or_create_queue!(name)
     end
 
     private
@@ -120,7 +152,7 @@ module QueueIt::QueableByName
     array
   end
 
-  def after_commit_handler
-    QueueIt.queue_callback.new.match(self)
+  def after_commit_handler(name, nodable, operation)
+    QueueIt.queue_callback.call(self, name, nodable, operation)
   end
 end
