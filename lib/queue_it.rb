@@ -3,6 +3,8 @@ require "queue_it/engine"
 module QueueIt
   extend self
 
+  attr_accessor :queue_callback
+
   # You can add, in this module, your own configuration options as in the example below...
   #
   # attr_writer :my_option

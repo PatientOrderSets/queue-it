@@ -28,13 +28,13 @@ module QueueIt
     end
 
     def get_next_by_with_queue_length_one(nodable_attribute, attribute_value)
-      head_node if head_node.nodable.send(nodable_attribute) == attribute_value
+      head_node if head_node&.nodable.send(nodable_attribute) == attribute_value
     end
 
     def get_next_by_with_queue_length_two(nodable_attribute, attribute_value)
-      if head_node.nodable.send(nodable_attribute) == attribute_value
+      if head_node&.nodable.send(nodable_attribute) == attribute_value
         get_next_in_queue_with_length_two
-      elsif tail_node.nodable.send(nodable_attribute) == attribute_value
+      elsif tail_node&.nodable.send(nodable_attribute) == attribute_value
         tail_node
       end
     end
@@ -42,8 +42,8 @@ module QueueIt
     def get_next_in_queue_with_length_two
       ActiveRecord::Base.transaction do
         lock!
-        old_head_node = head_node.lock!
-        old_tail_node = tail_node.lock!
+        old_head_node = head_node&.lock!
+        old_tail_node = tail_node&.lock!
         nodes.where.not(kind: :any).find_each { |node| node.update!(kind: :any) }
         old_head_node.update!(kind: :tail, parent_node: old_tail_node)
         old_tail_node.update!(kind: :head, parent_node: nil)
@@ -52,17 +52,17 @@ module QueueIt
     end
 
     def get_next_by_in_generic_queue(nodable_attribute, attribute_value)
-      if head_node.nodable.send(nodable_attribute) == attribute_value
+      if head_node&.nodable.send(nodable_attribute) == attribute_value
         return get_next_in_queue_generic
       end
 
       current_node = head_node.child_node
-      while !(current_node.nodable.send(nodable_attribute) == attribute_value &&
+      while !(current_node&.nodable.send(nodable_attribute) == attribute_value &&
           current_node != tail_node)
         current_node = current_node.child_node
         break if current_node == tail_node
       end
-      if current_node.nodable.send(nodable_attribute) == attribute_value
+      if current_node&.nodable.send(nodable_attribute) == attribute_value
         current_node != tail_node ? move_current_node(current_node) : tail_node
       end
     end
@@ -70,9 +70,9 @@ module QueueIt
     def get_next_in_queue_generic
       ActiveRecord::Base.transaction do
         lock!
-        old_head_node = head_node.lock!
-        old_second_node = old_head_node.child_node.lock!
-        old_tail_node = tail_node.lock!
+        old_head_node = head_node&.lock!
+        old_second_node = old_head_node.child_node&.lock!
+        old_tail_node = tail_node&.lock!
         nodes.where.not(kind: :any).find_each { |node| node.update!(kind: :any) }
         old_head_node.update!(kind: :tail, parent_node: old_tail_node)
         old_second_node.update!(kind: :head, parent_node: nil)
@@ -80,11 +80,48 @@ module QueueIt
       end
     end
 
+    def peek_next_by_with_queue_length_one(nodable_attribute, attribute_value)
+      head_node if head_node&.nodable.send(nodable_attribute) == attribute_value
+    end
+
+    def peek_next_by_with_queue_length_two(nodable_attribute, attribute_value)
+      if head_node&.nodable.send(nodable_attribute) == attribute_value
+        head_node
+      elsif tail_node&.nodable.send(nodable_attribute) == attribute_value
+        tail_node
+      end
+    end
+
+    def peek_next_by_in_generic_queue(nodable_attribute, attribute_value)
+      if head_node&.nodable.send(nodable_attribute) == attribute_value
+        return head_node
+      end
+
+      current_node = head_node&.child_node
+      return unless current_node
+
+      while !(current_node&.nodable.send(nodable_attribute) == attribute_value &&
+          current_node != tail_node)
+        current_node = current_node&.child_node
+        break if current_node == tail_node
+      end
+      if current_node&.nodable.send(nodable_attribute) == attribute_value
+        current_node != tail_node ? current_node : tail_node
+      end
+    end
+
+    def peek_next_in_queue_generic
+      head_node
+    end
+
     def push_node_when_queue_length_is_zero(nodable)
-      ActiveRecord::Base.transaction do
+      nodable = ActiveRecord::Base.transaction do
         lock!
         nodes.create!(nodable: nodable, kind: :head)
       end
+
+      after_commit_handler(name, nodable, "append")
+      nodable
     end
 
     def push_node_when_queue_length_is_one(nodable, in_head)
@@ -95,27 +132,36 @@ module QueueIt
           lock!
           nodes.create!(nodable: nodable, kind: :tail, parent_node: head_node)
         end
+        after_commit_handler(name, nodable, "append")
       end
+
+      nodable
     end
 
     def push_in_head(nodable)
       ActiveRecord::Base.transaction do
         lock!
-        old_head_node = head_node.lock!
+        old_head_node = head_node&.lock!
         kind = one_node? ? :tail : :any
         old_head_node.update!(kind: kind)
         new_head_node = nodes.create!(nodable: nodable, kind: :head)
         old_head_node.update!(parent_node: new_head_node)
       end
+
+      after_commit_handler(name, nodable, "prepend")
+
+      nodable
     end
 
     def push_in_tail(nodable)
       ActiveRecord::Base.transaction do
         lock!
-        old_tail_node = tail_node.lock!
+        old_tail_node = tail_node&.lock!
         old_tail_node.update!(kind: :any)
         nodes.create!(nodable: nodable, kind: :tail, parent_node: old_tail_node)
       end
+
+      after_commit_handler(name, nodable, "append")
     end
 
     private
@@ -123,15 +169,19 @@ module QueueIt
     def move_current_node(current_node)
       ActiveRecord::Base.transaction do
         lock!
-        old_parent_node = current_node.parent_node.lock!
-        old_current_node = current_node.lock!
-        old_next_node = current_node.child_node.lock!
-        old_tail_node = tail_node.lock!
+        old_parent_node = current_node.parent_node&.lock!
+        old_current_node = current_node&.lock!
+        old_next_node = current_node.child_node&.lock!
+        old_tail_node = tail_node&.lock!
         old_tail_node.update!(kind: :any)
         old_current_node.update!(kind: :tail, parent_node: old_tail_node)
         old_next_node.update!(parent_node: old_parent_node)
         old_current_node
       end
+    end
+
+    def after_commit_handler(name, nodable, operation)
+      QueueIt.queue_callback.call(queable, name, nodable, operation)
     end
   end
 end
