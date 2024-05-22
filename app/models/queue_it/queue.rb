@@ -39,6 +39,18 @@ module QueueIt
       end
     end
 
+    def peek_next_by_with_queue_length_one(nodable_attribute, attribute_value)
+      head_node if head_node&.nodable.send(nodable_attribute) == attribute_value
+    end
+
+    def peek_next_by_with_queue_length_two(nodable_attribute, attribute_value)
+      if head_node&.nodable.send(nodable_attribute) == attribute_value
+        head_node
+      elsif tail_node&.nodable.send(nodable_attribute) == attribute_value
+        tail_node
+      end
+    end
+
     def get_next_in_queue_with_length_two
       ActiveRecord::Base.transaction do
         lock!
@@ -51,20 +63,42 @@ module QueueIt
       end
     end
 
+    def peek_next_by_in_generic_queue(nodable_attribute, attribute_value)
+      if head_node&.nodable.send(nodable_attribute) == attribute_value
+        return head_node
+      end
+
+      current_node = head_node&.child_node
+      return unless current_node
+
+      while !(current_node&.nodable.send(nodable_attribute) == attribute_value &&
+          current_node != tail_node)
+        current_node = current_node&.child_node
+        break if current_node == tail_node
+      end
+      if current_node&.nodable.send(nodable_attribute) == attribute_value
+        current_node != tail_node ? current_node : tail_node
+      end
+    end
+
     def get_next_by_in_generic_queue(nodable_attribute, attribute_value)
       if head_node&.nodable.send(nodable_attribute) == attribute_value
         return get_next_in_queue_generic
       end
 
       current_node = head_node.child_node
-      while !(current_node.nodable.send(nodable_attribute) == attribute_value &&
+      while !(current_node&.nodable.send(nodable_attribute) == attribute_value &&
           current_node != tail_node)
         current_node = current_node.child_node
         break if current_node == tail_node
       end
-      if current_node.nodable.send(nodable_attribute) == attribute_value
+      if current_node&.nodable.send(nodable_attribute) == attribute_value
         current_node != tail_node ? move_current_node(current_node) : tail_node
       end
+    end
+
+    def peek_next_in_queue_generic
+      head_node
     end
 
     def get_next_in_queue_generic
