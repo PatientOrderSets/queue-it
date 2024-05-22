@@ -35,26 +35,6 @@ module QueueIt::QueableByName
       local_queue(name).get_next_by_in_generic_queue(nodable_attribute, attribute_value)
     end
 
-    def peek_next_in_queue_by(name, nodable_attribute, attribute_value)
-      peek_next_node_in_queue_by(name, nodable_attribute, attribute_value)&.nodable
-    end
-
-    def peek_next_node_in_queue_by(name, nodable_attribute, attribute_value)
-      return if local_queue(name).empty?
-
-      if local_queue(name).one_node?
-        return local_queue(name).peek_next_by_with_queue_length_one(nodable_attribute, attribute_value)
-      elsif local_queue(name).two_nodes?
-        return local_queue(name).peek_next_by_with_queue_length_two(nodable_attribute, attribute_value)
-      end
-
-      local_queue(name).peek_next_by_in_generic_queue(nodable_attribute, attribute_value)
-    end
-
-    def peek_next_in_queue(name)
-      local_queue(name).peek_next_in_queue_generic&.nodable
-    end
-
     def get_next_in_queue(name)
       get_next_node_in_queue(name)&.nodable
     end
@@ -76,6 +56,26 @@ module QueueIt::QueableByName
       return [local_queue(name).head_node.nodable.send(nodable_attribute)] if local_queue(name).one_node?
 
       formatted_generic_queue(name, nodable_attribute)
+    end
+
+    def peek_next_in_queue_by(name, nodable_attribute, attribute_value)
+      peek_next_node_in_queue_by(name, nodable_attribute, attribute_value)&.nodable
+    end
+
+    def peek_next_node_in_queue_by(name, nodable_attribute, attribute_value)
+      return if local_queue(name).empty?
+
+      if local_queue(name).one_node?
+        return local_queue(name).peek_next_by_with_queue_length_one(nodable_attribute, attribute_value)
+      elsif local_queue(name).two_nodes?
+        return local_queue(name).peek_next_by_with_queue_length_two(nodable_attribute, attribute_value)
+      end
+
+      local_queue(name).peek_next_by_in_generic_queue(nodable_attribute, attribute_value)
+    end
+
+    def peek_next_in_queue(name)
+      local_queue(name).peek_next_in_queue_generic&.nodable
     end
 
     def delete_queue_nodes(name)
@@ -139,12 +139,6 @@ module QueueIt::QueableByName
     end
 
     def local_queue(name)
-      # @local_queues ||= {}
-
-      # return @local_queues[name] if @local_queues[name]
-      # @local_queues[name] = find_or_create_queue!(name)
-
-      # @local_queues[name]
       find_or_create_queue!(name)
     end
 
