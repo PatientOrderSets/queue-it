@@ -9,13 +9,13 @@ module QueueIt::QueableByName
       QueueIt::Queue.find_or_create_by!(queable: self, name: name)
     end
 
-    def push_to_queue(name, nodable, in_head = true)
+    def push_to_queue(name, nodable, in_head = true, skip_callback = false)
       if local_queue(name).empty?
-        local_queue(name).push_node_when_queue_length_is_zero(nodable)
+        local_queue(name).push_node_when_queue_length_is_zero(nodable, skip_callback)
       elsif local_queue(name).one_node?
-        local_queue(name).push_node_when_queue_length_is_one(nodable, in_head)
+        local_queue(name).push_node_when_queue_length_is_one(nodable, in_head, skip_callback)
       else
-        in_head ? local_queue(name).push_in_head(nodable) : local_queue(name).push_in_tail(nodable)
+        in_head ? local_queue(name).push_in_head(nodable, skip_callback) : local_queue(name).push_in_tail(nodable, skip_callback)
       end
     end
 
@@ -84,7 +84,7 @@ module QueueIt::QueableByName
       local_queue(name).save
     end
 
-    def pop_from_queue(name)
+    def pop_from_queue(name, skip_callback = false)
       nodable = nil
       ActiveRecord::Base.transaction do
         local_queue(name).lock!
@@ -95,11 +95,11 @@ module QueueIt::QueableByName
         end
       end
 
-      after_commit_handler(name, nodable, "remove") if nodable.present?
+      after_commit_handler(name, nodable, "remove") if nodable.present? && skip_callback
       nodable
     end
 
-    def pop_from_queue_by(name, nodable_attribute, attribute_value)
+    def pop_from_queue_by(name, nodable_attribute, attribute_value, skip_callback = false)
       nodable = nil
       ActiveRecord::Base.transaction do
         local_queue(name).lock!
@@ -110,11 +110,11 @@ module QueueIt::QueableByName
         end
       end
 
-      after_commit_handler(name, nodable, "remove") if nodable.present?
+      after_commit_handler(name, nodable, "remove") if nodable.present? && skip_callback
       nodable
     end
 
-    def remove_from_queue(name, nodable)
+    def remove_from_queue(name, nodable, skip_callback = false)
       return if local_queue(name).empty? || local_queue(name).nodes.where(nodable: nodable).empty?
 
       ActiveRecord::Base.transaction do
@@ -124,7 +124,7 @@ module QueueIt::QueableByName
         end
       end
 
-      after_commit_handler(name, nodable, "remove")
+      after_commit_handler(name, nodable, "remove") unless skip_callback
       nodable
     end
 
