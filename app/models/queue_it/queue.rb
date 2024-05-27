@@ -114,31 +114,31 @@ module QueueIt
       head_node
     end
 
-    def push_node_when_queue_length_is_zero(nodable)
+    def push_node_when_queue_length_is_zero(nodable, skip_callback = false)
       nodable = ActiveRecord::Base.transaction do
         lock!
         nodes.create!(nodable: nodable, kind: :head)
       end
 
-      after_commit_handler(name, nodable, "append")
+      after_commit_handler(name, nodable, "append") unless skip_callback
       nodable
     end
 
-    def push_node_when_queue_length_is_one(nodable, in_head)
+    def push_node_when_queue_length_is_one(nodable, in_head, skip_callback = false)
       if in_head
-        push_in_head(nodable)
+        push_in_head(nodable, skip_callback)
       else
         ActiveRecord::Base.transaction do
           lock!
           nodes.create!(nodable: nodable, kind: :tail, parent_node: head_node)
         end
-        after_commit_handler(name, nodable, "append")
+        after_commit_handler(name, nodable, "append") unless skip_callback
       end
 
       nodable
     end
 
-    def push_in_head(nodable)
+    def push_in_head(nodable, skip_callback = false)
       ActiveRecord::Base.transaction do
         lock!
         old_head_node = head_node&.lock!
@@ -148,12 +148,12 @@ module QueueIt
         old_head_node.update!(parent_node: new_head_node)
       end
 
-      after_commit_handler(name, nodable, "prepend")
+      after_commit_handler(name, nodable, "prepend") unless skip_callback
 
       nodable
     end
 
-    def push_in_tail(nodable)
+    def push_in_tail(nodable, skip_callback = false)
       ActiveRecord::Base.transaction do
         lock!
         old_tail_node = tail_node&.lock!
@@ -161,7 +161,7 @@ module QueueIt
         nodes.create!(nodable: nodable, kind: :tail, parent_node: old_tail_node)
       end
 
-      after_commit_handler(name, nodable, "append")
+      after_commit_handler(name, nodable, "append") unless skip_callback
     end
 
     private
