@@ -321,8 +321,34 @@ describe 'Concerns::QueableByName' do
     queue.pop
     queue.push(john)
   end
+
+  it "filter expression should execute in the context of the declaring method" do
+    task = JobWithAttributes.create
+    task.age = 30
+
+    bob = create(:user, name: "Bob")
+    xia = create(:user, name: "Xia")
+    john = create(:user, name: "John")
+
+    task.queue('cops').push(bob)
+    task.queue('cops').push(xia)
+    task.queue('cops').push(john)
+
+    expect(task.sorted_cops.map(&:name)).to eq(%w(Bob Xia John))
+  end
 end
 
 class JobWithListener < Job
   def after_queue_changed(queue, nodable, event); end
+end
+
+class JobWithAttributes < Job
+  attr_accessor :age
+
+  def sorted_cops
+    queue('cops').nodables(
+      sort_exp: ->(u) { u.name.length + age },
+      sort_order: :asc
+    )
+  end
 end

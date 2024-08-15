@@ -158,9 +158,9 @@ class QueueIt::QueueApi
 
     case order
     when :desc
-      ->(a, b) { b.instance_eval(&exp) <=> a.instance_eval(&exp) }
+      ->(a, b) { exp.call(b) <=> exp.call(a) }
     when :asc
-      ->(a, b) { a.instance_eval(&exp) <=> b.instance_eval(&exp) }
+      ->(a, b) { exp.call(a) <=> exp.call(b) }
     else
       raise ArgumentError.new("Invalid sort order #{order}")
     end
