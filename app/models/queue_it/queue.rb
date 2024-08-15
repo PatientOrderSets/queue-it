@@ -37,6 +37,15 @@ module QueueIt
       nodables
     end
 
+    def contains?(nodable)
+      current_node = head_node
+      while current_node
+        return true if current_node.nodable == nodable
+        current_node = current_node.child_node
+      end
+      false
+    end
+
     def get_next_by_with_queue_length_one(nodable_attribute, attribute_value)
       head_node if head_node&.nodable.send(nodable_attribute) == attribute_value
     end

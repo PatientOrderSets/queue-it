@@ -236,16 +236,34 @@ describe 'Concerns::QueableByName' do
     end
   end
 
-  describe '#remove_nodable' do
-    it "should remove the first node in the queue sorted by field" do
+  describe '#remove' do
+    it "should remove the nodable from the queue" do
       john = create(:user, name: "John")
       bob = create(:user, name: "Bob")
       task.queue("cops").push(john)
       task.queue("cops").push(bob)
 
-      result = task.queue("cops").remove_nodable(john)
-      expect(result.name).to eq(john.name)
+      task.queue("cops").remove(john)
       expect(task.queue("cops").nodes.count).to eq(1)
+    end
+  end
+
+  describe '#contains?' do
+    it "should return true if nodable is in the queue" do
+      john = create(:user, name: "John")
+      bob = create(:user, name: "Bob")
+      task.queue("cops").push(john)
+      task.queue("cops").push(bob)
+
+      expect(task.queue("cops").contains?(john)).to be_truthy
+    end
+
+    it "should return false if nodable is not in the queue" do
+      john = create(:user, name: "John")
+      bob = create(:user, name: "Bob")
+      task.queue("cops").push(john)
+
+      expect(task.queue("cops").contains?(bob)).to be_falsey
     end
   end
 

@@ -43,6 +43,10 @@ class QueueIt::QueueApi
     end
   end
 
+  def contains?(nodable)
+    queue.contains?(nodable)
+  end
+
   def peek(filter_exp: nil, sort_exp: nil, sort_order: :asc)
     items = nodables(
       sort_exp: sort_exp,
@@ -81,12 +85,18 @@ class QueueIt::QueueApi
     self
   end
 
-  def remove_nodable(nodable)
-    item = delete_nodable(filter_exp: ->(n) { n == nodable }, &:first)
+  def remove(nodable)
+    removed = ActiveRecord::Base.transaction do
+      queue.lock!
 
-    emit_event(item, "remove")
+      nodes = queue.nodes.where(nodable: nodable)
+      nodes.find_each { |node| remove_node(node) }
+      nodes.any?
+    end
 
-    item
+    emit_event(nodable, "remove") if removed
+
+    self
   end
 
   def pop(filter_exp: nil, sort_exp: nil, sort_order: :asc)
