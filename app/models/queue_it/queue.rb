@@ -27,6 +27,25 @@ module QueueIt
       size == 2
     end
 
+    def nodables
+      nodables = []
+      current_node = head_node
+      while current_node
+        nodables << current_node.nodable
+        current_node = current_node.child_node
+      end
+      nodables
+    end
+
+    def contains?(nodable)
+      current_node = head_node
+      while current_node
+        return true if current_node.nodable == nodable
+        current_node = current_node.child_node
+      end
+      false
+    end
+
     def get_next_by_with_queue_length_one(nodable_attribute, attribute_value)
       head_node if head_node&.nodable.send(nodable_attribute) == attribute_value
     end
@@ -181,7 +200,9 @@ module QueueIt
     end
 
     def after_commit_handler(name, nodable, operation)
-      QueueIt.queue_callback.call(queable, name, nodable, operation)
+      if QueueIt.queue_callback.respond_to?(:call)
+        QueueIt.queue_callback.call(queable, name, nodable, operation)
+      end
     end
   end
 end

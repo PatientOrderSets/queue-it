@@ -142,6 +142,10 @@ module QueueIt::QueableByName
       find_or_create_queue!(name)
     end
 
+    def queue(name)
+      QueueIt::QueueApi.new(self, local_queue(name))
+    end
+
     private
 
     def remove_node(node)
@@ -167,6 +171,6 @@ module QueueIt::QueableByName
   end
 
   def after_commit_handler(name, nodable, operation)
-    QueueIt.queue_callback.call(self, name, nodable, operation)
+    QueueIt.queue_callback.call(self, name, nodable, operation) if QueueIt.queue_callback.respond_to?(:call)
   end
 end
