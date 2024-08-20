@@ -35,7 +35,7 @@ class QueueIt::QueueApi
       end
 
       if sort_exp.present?
-        sort_exp = create_sort_exp(create_expression(sort_exp), sort_order)
+        sort_exp = create_sort_exp(create_expression(sort_exp), sort_order, nodables)
         nodables = nodables.sort(&sort_exp)
       end
 
@@ -163,14 +163,22 @@ class QueueIt::QueueApi
     end
   end
 
-  def create_sort_exp(exp, order)
+  def create_sort_exp(exp, order, nodables)
     return if exp.nil?
 
     case order
     when :desc
-      ->(a, b) { exp.call(b) <=> exp.call(a) }
+      ->(a, b) do
+        a_pos = nodables.index { |n| n.id == a.id }
+        b_pos = nodables.index { |n| n.id == b.id }
+        [exp.call(b), b_pos] <=> [exp.call(a), a_pos]
+      end
     when :asc
-      ->(a, b) { exp.call(a) <=> exp.call(b) }
+      ->(a, b) do
+        a_pos = nodables.index { |n| n.id == a.id }
+        b_pos = nodables.index { |n| n.id == b.id }
+        [exp.call(a), a_pos] <=> [exp.call(b), b_pos]
+      end
     else
       raise ArgumentError.new("Invalid sort order #{order}")
     end

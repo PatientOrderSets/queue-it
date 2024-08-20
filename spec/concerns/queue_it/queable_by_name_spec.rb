@@ -44,6 +44,38 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#pop' do
+    it "should return the first node in the queue sorted by field and nodable order" do
+      task.queue("cops").push(create(:user, name: "Edward"))
+      task.queue("cops").push(create(:user, name: "Amy"))
+      task.queue("cops").push(create(:user, name: "Bob"))
+      task.queue("cops").push(create(:user, name: "David"))
+      task.queue("cops").push(create(:user, name: "Cindy"))
+      task.queue("cops").push(create(:user, name: "Frank"))
+
+      handle_time = {
+        "Amy" => 0,
+        "Bob" => 0,
+        "David" => 1,
+        "Cindy" => 0,
+        "Edward" => 2,
+        "Frank" => 0
+      }
+
+      result = task.queue("cops").pop(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :asc
+      )
+      expect(result.name).to eq("Edward")
+      expect(task.queue("cops").nodes.count).to eq(5)
+
+      result = task.queue("cops").pop(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :desc
+      )
+      expect(result.name).to eq("Amy")
+      expect(task.queue("cops").nodes.count).to eq(4)
+    end
+
     it "should return the first node in the queue sorted by field" do
       task.queue("cops").push(create(:user, name: "John"))
       task.queue("cops").push(create(:user, name: "Bob"))
@@ -86,6 +118,38 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#shift' do
+    it "should return the first node in the queue sorted by field and nodable order" do
+      task.queue("cops").push(create(:user, name: "Edward"))
+      task.queue("cops").push(create(:user, name: "Amy"))
+      task.queue("cops").push(create(:user, name: "Bob"))
+      task.queue("cops").push(create(:user, name: "David"))
+      task.queue("cops").push(create(:user, name: "Cindy"))
+      task.queue("cops").push(create(:user, name: "Frank"))
+
+      handle_time = {
+        "Amy" => 0,
+        "Bob" => 0,
+        "David" => 1,
+        "Cindy" => 0,
+        "Edward" => 2,
+        "Frank" => 0
+      }
+
+      result = task.queue("cops").shift(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :asc
+      )
+      expect(result.name).to eq("Amy")
+      expect(task.queue("cops").nodes.count).to eq(5)
+
+      result = task.queue("cops").shift(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :desc
+      )
+      expect(result.name).to eq("Edward")
+      expect(task.queue("cops").nodes.count).to eq(4)
+    end
+
     it "should return the first node in the queue sorted by field" do
       task.queue("cops").push(create(:user, name: "John"))
       task.queue("cops").push(create(:user, name: "Bob"))
@@ -128,6 +192,36 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#nodables' do
+    it "should return the nodes in the queue sorted using the given sort expression and nodable order" do
+      task.queue("cops").push(create(:user, name: "Edward"))
+      task.queue("cops").push(create(:user, name: "Amy"))
+      task.queue("cops").push(create(:user, name: "Bob"))
+      task.queue("cops").push(create(:user, name: "David"))
+      task.queue("cops").push(create(:user, name: "Cindy"))
+      task.queue("cops").push(create(:user, name: "Frank"))
+
+      handle_time = {
+        "Amy" => 0,
+        "Bob" => 0,
+        "David" => 1,
+        "Cindy" => 0,
+        "Edward" => 2,
+        "Frank" => 0
+      }
+
+      result = task.queue("cops").nodables(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :asc
+      )
+      expect(result.map(&:name)).to eq(%w(Amy Bob Cindy Frank David Edward))
+
+      result = task.queue("cops").nodables(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :desc
+      )
+      expect(result.map(&:name)).to eq(%w(Edward David Frank Cindy Bob Amy))
+    end
+
     it "should return the nodes in the queue sorted using the given sort expression and sort order" do
       task.queue("cops").push(create(:user, name: "Bob"))
       task.queue("cops").push(create(:user, name: "Xia"))
@@ -194,6 +288,31 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#peek' do
+    it "should return the first node in the queue sorted by field and nodable order" do
+      task.queue("cops").push(create(:user, name: "Edward"))
+      task.queue("cops").push(create(:user, name: "Amy"))
+      task.queue("cops").push(create(:user, name: "Bob"))
+      task.queue("cops").push(create(:user, name: "David"))
+      task.queue("cops").push(create(:user, name: "Cindy"))
+      task.queue("cops").push(create(:user, name: "Frank"))
+
+      handle_time = {
+        "Amy" => 0,
+        "Bob" => 0,
+        "David" => 1,
+        "Cindy" => 0,
+        "Edward" => 2,
+        "Frank" => 0
+      }
+
+      result = task.queue("cops").peek(
+        sort_exp: ->(u) { handle_time[u.name] },
+        sort_order: :asc
+      )
+      expect(result.name).to eq("Amy")
+      expect(task.queue("cops").nodes.count).to eq(6)
+    end
+
     it "should return the first node in the queue sorted by field" do
       task.queue("cops").push(create(:user, name: "John"))
       task.queue("cops").push(create(:user, name: "Bob"))
