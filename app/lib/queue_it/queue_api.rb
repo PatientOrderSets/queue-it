@@ -8,7 +8,9 @@ class QueueIt::QueueApi
   end
 
   def suppress_callbacks
+    puts "suppress_callbacks @@@"
     if block_given?
+      puts "suppress_callbacks @@@ block_given"
       begin
         @emit_callbacks = false
         yield
@@ -17,11 +19,13 @@ class QueueIt::QueueApi
       end
     else
       @emit_callbacks = false
+      puts "suppress_callbacks @@@ else: #{emit_callbacks}"
     end
   end
 
   def resume_callbacks
     @emit_callbacks = true
+    puts "resume_callbacks @@@: #{emit_callbacks}"
   end
 
   def nodables(filter_exp: nil, sort_exp: nil, sort_order: :asc)
@@ -196,9 +200,11 @@ class QueueIt::QueueApi
   end
 
   def emit_event(nodable, event)
+    puts "emit_event @@@: #{emit_callbacks}"
     return unless emit_callbacks
 
     if QueueIt.queue_callback.respond_to?(:call)
+      puts "emit_event @@@ 2: #{emit_callbacks}"
       QueueIt.queue_callback.call(queable, queue.name, nodable, event)
     end
 

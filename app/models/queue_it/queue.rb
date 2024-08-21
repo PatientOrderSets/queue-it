@@ -133,31 +133,31 @@ module QueueIt
       head_node
     end
 
-    def push_node_when_queue_length_is_zero(nodable, skip_callback = false)
+    def push_node_when_queue_length_is_zero(nodable, emit_callbacks = true)
       nodable = ActiveRecord::Base.transaction do
         lock!
         nodes.create!(nodable: nodable, kind: :head)
       end
 
-      after_commit_handler(name, nodable, "append") unless skip_callback
+      after_commit_handler(name, nodable, "append") if emit_callbacks
       nodable
     end
 
-    def push_node_when_queue_length_is_one(nodable, in_head, skip_callback = false)
+    def push_node_when_queue_length_is_one(nodable, in_head, emit_callbacks = true)
       if in_head
-        push_in_head(nodable, skip_callback)
+        push_in_head(nodable, emit_callbacks)
       else
         ActiveRecord::Base.transaction do
           lock!
           nodes.create!(nodable: nodable, kind: :tail, parent_node: head_node)
         end
-        after_commit_handler(name, nodable, "append") unless skip_callback
+        after_commit_handler(name, nodable, "append") if emit_callbacks
       end
 
       nodable
     end
 
-    def push_in_head(nodable, skip_callback = false)
+    def push_in_head(nodable, emit_callbacks = true)
       ActiveRecord::Base.transaction do
         lock!
         old_head_node = head_node&.lock!
@@ -167,12 +167,13 @@ module QueueIt
         old_head_node.update!(parent_node: new_head_node)
       end
 
-      after_commit_handler(name, nodable, "prepend") unless skip_callback
+      puts "push_in_head @@@: #{emit_callbacks}"
+      after_commit_handler(name, nodable, "prepend") if emit_callbacks
 
       nodable
     end
 
-    def push_in_tail(nodable, skip_callback = false)
+    def push_in_tail(nodable, emit_callbacks = true)
       ActiveRecord::Base.transaction do
         lock!
         old_tail_node = tail_node&.lock!
@@ -180,7 +181,7 @@ module QueueIt
         nodes.create!(nodable: nodable, kind: :tail, parent_node: old_tail_node)
       end
 
-      after_commit_handler(name, nodable, "append") unless skip_callback
+      after_commit_handler(name, nodable, "append") if emit_callbacks
     end
 
     private
