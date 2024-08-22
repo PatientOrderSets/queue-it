@@ -1,4 +1,6 @@
 class QueueIt::QueueApi
+  SortableItem = Struct.new(:value, :index)
+
   attr_reader :queue, :emit_callbacks, :queable
 
   def initialize(queable, queue)
@@ -31,12 +33,12 @@ class QueueIt::QueueApi
       nodables = queue.nodables
       if filter_exp.present?
         filter_exp = create_expression(filter_exp)
-        nodables = nodables.filter(&filter_exp)
+        nodables = execute_filter_exp(filter_exp, nodables)
       end
 
       if sort_exp.present?
-        sort_exp = create_sort_exp(create_expression(sort_exp), sort_order, nodables)
-        nodables = nodables.sort(&sort_exp)
+        sort_exp = create_sort_exp(create_expression(sort_exp), sort_order)
+        nodables = execute_sort_exp(sort_exp, nodables)
       end
 
       nodables
@@ -59,11 +61,11 @@ class QueueIt::QueueApi
 
   def push(nodable)
     if queue.empty?
-      queue.push_node_when_queue_length_is_zero(nodable, emit_callbacks)
+      queue.push_node_when_queue_length_is_zero(nodable, false)
     elsif queue.one_node?
-      queue.push_node_when_queue_length_is_one(nodable, false, emit_callbacks)
+      queue.push_node_when_queue_length_is_one(nodable, false, false)
     else
-      queue.push_in_tail(nodable, emit_callbacks)
+      queue.push_in_tail(nodable, false)
     end
 
     emit_event(nodable, "push")
@@ -73,11 +75,11 @@ class QueueIt::QueueApi
 
   def unshift(nodable)
     if queue.empty?
-      queue.push_node_when_queue_length_is_zero(nodable, emit_callbacks)
+      queue.push_node_when_queue_length_is_zero(nodable, false)
     elsif queue.one_node?
-      queue.push_node_when_queue_length_is_one(nodable, true, emit_callbacks)
+      queue.push_node_when_queue_length_is_one(nodable, true, false)
     else
-      queue.push_in_head(nodable, emit_callbacks)
+      queue.push_in_head(nodable, false)
     end
 
     emit_event(nodable, "unshift")
@@ -163,25 +165,29 @@ class QueueIt::QueueApi
     end
   end
 
-  def create_sort_exp(exp, order, nodables)
+  def create_sort_exp(exp, order)
     return if exp.nil?
 
     case order
     when :desc
       ->(a, b) do
-        a_pos = nodables.index { |n| n.id == a.id }
-        b_pos = nodables.index { |n| n.id == b.id }
-        [exp.call(b), b_pos] <=> [exp.call(a), a_pos]
+        [exp.call(b.value), b.index] <=> [exp.call(a.value), a.index]
       end
     when :asc
       ->(a, b) do
-        a_pos = nodables.index { |n| n.id == a.id }
-        b_pos = nodables.index { |n| n.id == b.id }
-        [exp.call(a), a_pos] <=> [exp.call(b), b_pos]
+        [exp.call(a.value), a.index] <=> [exp.call(b.value), b.index]
       end
     else
       raise ArgumentError.new("Invalid sort order #{order}")
     end
+  end
+
+  def execute_filter_exp(filter_exp, _nodes)
+    nodables.filter(&filter_exp)
+  end
+
+  def execute_sort_exp(sort_exp, nodes)
+    nodes.map.with_index { |n, i| SortableItem.new(n, i) }.sort(&sort_exp).map(&:value)
   end
 
   def remove_node(node)
