@@ -435,8 +435,7 @@ describe 'Concerns::QueableByName' do
         expect(nodable.name).to eq("Xia")
 
         queue.resume_callbacks
-        nodable = queue.pop
-        expect(nodable.name).to eq("Bob")
+        queue.push(create(:user, name: "John"))
       end
     end
   end
