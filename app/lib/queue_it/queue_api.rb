@@ -28,8 +28,6 @@ class QueueIt::QueueApi
 
   def nodables(filter_exp: nil, sort_exp: nil, sort_order: :asc)
     ActiveRecord::Base.transaction do
-      queue.lock!
-
       nodables = queue.nodables
       if filter_exp.present?
         filter_exp = create_expression(filter_exp)
