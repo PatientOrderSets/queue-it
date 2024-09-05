@@ -86,7 +86,7 @@ class QueueIt::QueueApi
   end
 
   def remove(nodable)
-    removed = ActiveRecord::Base.transaction do
+    ActiveRecord::Base.transaction do
       queue.lock!
 
       nodes = queue.nodes.where(nodable: nodable)
@@ -94,7 +94,7 @@ class QueueIt::QueueApi
       nodes.any?
     end
 
-    emit_event(nodable, "remove") if removed
+    emit_event(nodable, "remove")
 
     self
   end

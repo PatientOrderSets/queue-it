@@ -115,6 +115,20 @@ describe 'Concerns::QueableByName' do
       )
       expect(result.name).to eq("Bob")
     end
+
+    it "should emit callback" do
+      task.queue("cops").push(create(:user, name: "John"))
+      task.queue("cops").push(create(:user, name: "Bob"))
+
+      queue_callback = double("QueueCallback")
+      expect(queue_callback).to receive(:call).once
+      expect(QueueIt).to receive(:queue_callback).and_return(queue_callback).twice
+      result = task.queue("cops").pop(
+        sort_exp: :name,
+        sort_order: :desc
+      )
+      expect(result.name).to eq("Bob")
+    end
   end
 
   describe '#shift' do
@@ -365,6 +379,19 @@ describe 'Concerns::QueableByName' do
       task.queue("cops").remove(john)
       expect(task.queue("cops").nodes.count).to eq(1)
     end
+
+    it "should emit callback" do
+      john = create(:user, name: "John")
+      bob = create(:user, name: "Bob")
+      task.queue("cops").push(john)
+      task.queue("cops").push(bob)
+
+      queue_callback = double("QueueCallback")
+      expect(queue_callback).to receive(:call).once
+      expect(QueueIt).to receive(:queue_callback).and_return(queue_callback).twice
+      task.queue("cops").remove(john)
+      expect(task.queue("cops").nodes.count).to eq(1)
+    end
   end
 
   describe '#contains?' do
@@ -436,6 +463,59 @@ describe 'Concerns::QueableByName' do
 
         queue.resume_callbacks
         queue.push(create(:user, name: "John"))
+      end
+    end
+  end
+
+  # deprecated
+  describe '#find_or_create_queue!' do
+    it "should return the queue with the given name" do
+      queue = task.find_or_create_queue!("cops")
+      expect(queue.name).to eq("cops")
+    end
+  end
+
+  # deprecated
+  describe '#push_to_queue' do
+    context 'when queue is empty' do
+      it "should push the nodable to the queue" do
+        queue = task.find_or_create_queue!("cops")
+        nodable = create(:user, name: "Bob")
+
+        expect(queue.nodes.count).to eq(0)
+        task.push_to_queue("cops", nodable)
+        expect(queue.nodes.count).to eq(1)
+      end
+    end
+
+    context 'when queue has 1 node already' do
+      it "should push the nodable to the queue" do
+        queue = task.find_or_create_queue!("cops")
+        nodable1 = create(:user, name: "Bob")
+        nodable2 = create(:user, name: "Xia")
+
+        task.push_to_queue("cops", nodable1)
+        expect(queue.nodes.count).to eq(1)
+        task.push_to_queue("cops", nodable2)
+        expect(queue.nodes.count).to eq(2)
+      end
+    end
+
+    context 'when queue has more than 1 node already' do
+      it "should push the nodable to the queue" do
+        queue = task.find_or_create_queue!("cops")
+        nodable1 = create(:user, name: "Bob")
+        nodable2 = create(:user, name: "Xia")
+        nodable3 = create(:user, name: "John")
+
+        task.push_to_queue("cops", nodable1)
+        task.push_to_queue("cops", nodable2)
+        expect(queue.nodes.count).to eq(2)
+        expect(queue.head_node.nodable).to eq(nodable2)
+
+        task.push_to_queue("cops", nodable3, false)
+        expect(queue.nodes.count).to eq(3)
+        expect(queue.tail_node.nodable).to eq(nodable3)
       end
     end
   end
