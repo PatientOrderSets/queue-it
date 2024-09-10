@@ -467,56 +467,10 @@ describe 'Concerns::QueableByName' do
     end
   end
 
-  # deprecated
   describe '#find_or_create_queue!' do
     it "should return the queue with the given name" do
       queue = task.find_or_create_queue!("cops")
       expect(queue.name).to eq("cops")
-    end
-  end
-
-  # deprecated
-  describe '#push_to_queue' do
-    context 'when queue is empty' do
-      it "should push the nodable to the queue" do
-        queue = task.find_or_create_queue!("cops")
-        nodable = create(:user, name: "Bob")
-
-        expect(queue.nodes.count).to eq(0)
-        task.push_to_queue("cops", nodable)
-        expect(queue.nodes.count).to eq(1)
-      end
-    end
-
-    context 'when queue has 1 node already' do
-      it "should push the nodable to the queue" do
-        queue = task.find_or_create_queue!("cops")
-        nodable1 = create(:user, name: "Bob")
-        nodable2 = create(:user, name: "Xia")
-
-        task.push_to_queue("cops", nodable1)
-        expect(queue.nodes.count).to eq(1)
-        task.push_to_queue("cops", nodable2)
-        expect(queue.nodes.count).to eq(2)
-      end
-    end
-
-    context 'when queue has more than 1 node already' do
-      it "should push the nodable to the queue" do
-        queue = task.find_or_create_queue!("cops")
-        nodable1 = create(:user, name: "Bob")
-        nodable2 = create(:user, name: "Xia")
-        nodable3 = create(:user, name: "John")
-
-        task.push_to_queue("cops", nodable1)
-        task.push_to_queue("cops", nodable2)
-        expect(queue.nodes.count).to eq(2)
-        expect(queue.head_node.nodable).to eq(nodable2)
-
-        task.push_to_queue("cops", nodable3, false)
-        expect(queue.nodes.count).to eq(3)
-        expect(queue.tail_node.nodable).to eq(nodable3)
-      end
     end
   end
 
