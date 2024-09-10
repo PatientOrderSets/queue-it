@@ -372,6 +372,18 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#remove' do
+    it "should not trigger callback if none were removed" do
+      john = create(:user, name: "John")
+      bob = create(:user, name: "Bob")
+      task.queue("cops").push(john)
+
+      queue_callback = double("QueueCallback")
+      expect(queue_callback).to receive(:call).never
+      expect(QueueIt).to receive(:queue_callback).and_return(queue_callback).never
+
+      task.queue("cops").remove(bob)
+    end
+
     it "should remove the nodable from the queue" do
       john = create(:user, name: "John")
       bob = create(:user, name: "Bob")
