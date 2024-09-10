@@ -3,7 +3,7 @@ module QueueIt::QueableByName
 
   included do
     has_many :queues,
-            as: :queable, inverse_of: :queable, dependent: :destroy, class_name: 'QueueIt::Queue'
+             as: :queable, inverse_of: :queable, dependent: :destroy, class_name: 'QueueIt::Queue'
 
     def find_or_create_queue!(name)
       QueueIt::Queue.find_or_create_by!(queable: self, name: name)
