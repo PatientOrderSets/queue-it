@@ -41,6 +41,7 @@ module QueueIt
       current_node = head_node
       while current_node
         return true if current_node.nodable == nodable
+
         current_node = current_node.child_node
       end
       false
@@ -99,65 +100,27 @@ module QueueIt
       end
     end
 
-    def peek_next_by_with_queue_length_one(nodable_attribute, attribute_value)
-      head_node if head_node&.nodable.send(nodable_attribute) == attribute_value
-    end
-
-    def peek_next_by_with_queue_length_two(nodable_attribute, attribute_value)
-      if head_node&.nodable.send(nodable_attribute) == attribute_value
-        head_node
-      elsif tail_node&.nodable.send(nodable_attribute) == attribute_value
-        tail_node
-      end
-    end
-
-    def peek_next_by_in_generic_queue(nodable_attribute, attribute_value)
-      if head_node&.nodable.send(nodable_attribute) == attribute_value
-        return head_node
-      end
-
-      current_node = head_node&.child_node
-      return unless current_node
-
-      while !(current_node&.nodable.send(nodable_attribute) == attribute_value &&
-          current_node != tail_node)
-        current_node = current_node&.child_node
-        break if current_node == tail_node
-      end
-      if current_node&.nodable.send(nodable_attribute) == attribute_value
-        current_node != tail_node ? current_node : tail_node
-      end
-    end
-
-    def peek_next_in_queue_generic
-      head_node
-    end
-
-    def push_node_when_queue_length_is_zero(nodable, emit_callbacks = true)
-      nodable = ActiveRecord::Base.transaction do
+    def push_node_when_queue_length_is_zero(nodable)
+      ActiveRecord::Base.transaction do
         lock!
         nodes.create!(nodable: nodable, kind: :head)
       end
-
-      after_commit_handler(name, nodable, "append") if emit_callbacks
-      nodable
     end
 
-    def push_node_when_queue_length_is_one(nodable, in_head, emit_callbacks = true)
+    def push_node_when_queue_length_is_one(nodable, in_head)
       if in_head
-        push_in_head(nodable, emit_callbacks)
+        push_in_head(nodable)
       else
         ActiveRecord::Base.transaction do
           lock!
           nodes.create!(nodable: nodable, kind: :tail, parent_node: head_node)
         end
-        after_commit_handler(name, nodable, "append") if emit_callbacks
       end
 
       nodable
     end
 
-    def push_in_head(nodable, emit_callbacks = true)
+    def push_in_head(nodable)
       ActiveRecord::Base.transaction do
         lock!
         old_head_node = head_node&.lock!
@@ -167,20 +130,16 @@ module QueueIt
         old_head_node.update!(parent_node: new_head_node)
       end
 
-      after_commit_handler(name, nodable, "prepend") if emit_callbacks
-
       nodable
     end
 
-    def push_in_tail(nodable, emit_callbacks = true)
+    def push_in_tail(nodable)
       ActiveRecord::Base.transaction do
         lock!
         old_tail_node = tail_node&.lock!
         old_tail_node.update!(kind: :any)
         nodes.create!(nodable: nodable, kind: :tail, parent_node: old_tail_node)
       end
-
-      after_commit_handler(name, nodable, "append") if emit_callbacks
     end
 
     private
@@ -196,12 +155,6 @@ module QueueIt
         old_current_node.update!(kind: :tail, parent_node: old_tail_node)
         old_next_node.update!(parent_node: old_parent_node)
         old_current_node
-      end
-    end
-
-    def after_commit_handler(name, nodable, operation)
-      if QueueIt.queue_callback.respond_to?(:call)
-        QueueIt.queue_callback.call(queable, name, nodable, operation)
       end
     end
   end

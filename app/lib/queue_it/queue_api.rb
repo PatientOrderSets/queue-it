@@ -59,11 +59,11 @@ class QueueIt::QueueApi
 
   def push(nodable)
     if queue.empty?
-      queue.push_node_when_queue_length_is_zero(nodable, false)
+      queue.push_node_when_queue_length_is_zero(nodable)
     elsif queue.one_node?
-      queue.push_node_when_queue_length_is_one(nodable, false, false)
+      queue.push_node_when_queue_length_is_one(nodable, false)
     else
-      queue.push_in_tail(nodable, false)
+      queue.push_in_tail(nodable)
     end
 
     emit_event(nodable, "push")
@@ -73,11 +73,11 @@ class QueueIt::QueueApi
 
   def unshift(nodable)
     if queue.empty?
-      queue.push_node_when_queue_length_is_zero(nodable, false)
+      queue.push_node_when_queue_length_is_zero(nodable)
     elsif queue.one_node?
-      queue.push_node_when_queue_length_is_one(nodable, true, false)
+      queue.push_node_when_queue_length_is_one(nodable, true)
     else
-      queue.push_in_head(nodable, false)
+      queue.push_in_head(nodable)
     end
 
     emit_event(nodable, "unshift")
@@ -90,8 +90,9 @@ class QueueIt::QueueApi
       queue.lock!
 
       nodes = queue.nodes.where(nodable: nodable)
+      has_nodes = nodes.any?
       nodes.find_each { |node| remove_node(node) }
-      nodes.any?
+      has_nodes
     end
 
     emit_event(nodable, "remove") if removed
