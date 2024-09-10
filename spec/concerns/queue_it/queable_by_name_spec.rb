@@ -206,7 +206,7 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#nodables' do
-    it "should return the nodes in the queue sorted using the given sort expression and nodable order" do
+    it "returns the nodes in the queue sorted using the given sort expression and nodable order" do
       task.queue("cops").push(create(:user, name: "Edward"))
       task.queue("cops").push(create(:user, name: "Amy"))
       task.queue("cops").push(create(:user, name: "Bob"))
@@ -236,7 +236,7 @@ describe 'Concerns::QueableByName' do
       expect(result.map(&:name)).to eq(%w(Edward David Frank Cindy Bob Amy))
     end
 
-    it "should return the nodes in the queue sorted using the given sort expression and sort order" do
+    it "returns the nodes in the queue sorted using the given sort expression and sort order" do
       task.queue("cops").push(create(:user, name: "Bob"))
       task.queue("cops").push(create(:user, name: "Xia"))
       task.queue("cops").push(create(:user, name: "John"))
@@ -272,7 +272,8 @@ describe 'Concerns::QueableByName' do
       expect(result.map(&:name)).not_to include("Xia")
     end
 
-    it "should return the nodes in the queue that match the given filter expression and sorted using the given sort expression and sort order" do
+    it "returns the nodes in the queue that match the given filter expression and sorted \
+      using the given sort expression and sort order" do
       task.queue("cops").push(create(:user, name: "Bob"))
       task.queue("cops").push(create(:user, name: "Xia"))
       task.queue("cops").push(create(:user, name: "John"))
@@ -291,7 +292,8 @@ describe 'Concerns::QueableByName' do
       expect(result.map(&:name)).to eq(%w(John Bob))
     end
 
-    it "should return the nodes in the order they were added to the queue if no sort expression is given" do
+    it "returns the nodes in the order they were added to the queue if no sort expression \
+      is given" do
       task.queue("cops").push(create(:user, name: "Bob"))
       task.queue("cops").push(create(:user, name: "Xia"))
       task.queue("cops").unshift(create(:user, name: "John"))
@@ -414,7 +416,7 @@ describe 'Concerns::QueableByName' do
   end
 
   describe '#suppress_callbacks' do
-    it "should not call queue_callback when queue is modified inside the suppress_callbacks block" do
+    it "does not call queue_callback when queue is modified inside the suppress_callbacks block" do
       queue = task.queue("cops")
 
       queue.push(create(:user, name: "Bob"))

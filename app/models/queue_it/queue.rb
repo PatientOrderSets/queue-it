@@ -100,16 +100,16 @@ module QueueIt
       end
     end
 
-    def push_node_when_queue_length_is_zero(nodable, _emit_callbacks = true)
+    def push_node_when_queue_length_is_zero(nodable)
       ActiveRecord::Base.transaction do
         lock!
         nodes.create!(nodable: nodable, kind: :head)
       end
     end
 
-    def push_node_when_queue_length_is_one(nodable, in_head, emit_callbacks = true)
+    def push_node_when_queue_length_is_one(nodable, in_head)
       if in_head
-        push_in_head(nodable, emit_callbacks)
+        push_in_head(nodable)
       else
         ActiveRecord::Base.transaction do
           lock!
@@ -120,7 +120,7 @@ module QueueIt
       nodable
     end
 
-    def push_in_head(nodable, _emit_callbacks = true)
+    def push_in_head(nodable)
       ActiveRecord::Base.transaction do
         lock!
         old_head_node = head_node&.lock!
@@ -133,7 +133,7 @@ module QueueIt
       nodable
     end
 
-    def push_in_tail(nodable, _emit_callbacks = true)
+    def push_in_tail(nodable)
       ActiveRecord::Base.transaction do
         lock!
         old_tail_node = tail_node&.lock!
