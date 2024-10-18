@@ -6,18 +6,31 @@ describe 'Concerns::QueableByName' do
       let(:nodable) { create(:user) }
 
       it 'expect queue to not be empty' do
-        a = create(:user)
-        b = create(:user)
+        user_a = create(:user)
+        user_b = create(:user)
+        user_c = create(:user)
 
         expect(task.queues.count).to eq(0)
 
-        task.queue("my_users").push(a)
-        task.queue("my_users").push(b)
+        task.queue("my_users").push(user_a)
 
         expect(task.queues.count).to eq(1)
+        expect(task.queue("my_users").nodes.count).to eq(1)
+        expect(task.queue("my_users").count_of_nodes).to eq(1)
+        expect(task.queue("my_users").nodes.where(kind: "head").first.nodable).to eq(user_a)
+
+        task.queue("my_users").push(user_b)
         expect(task.queue("my_users").nodes.count).to eq(2)
-        expect(task.queue("my_users").head_node.nodable).to eq(a)
-        expect(task.queue("my_users").tail_node.nodable).to eq(b)
+        expect(task.queue("my_users").count_of_nodes).to eq(2)
+        expect(task.queue("my_users").nodes.where(kind: "head").first.nodable).to eq(user_a)
+        expect(task.queue("my_users").nodes.where(kind: "tail").first.nodable).to eq(user_b)
+
+        task.queue("my_users").push(user_c)
+        expect(task.queue("my_users").nodes.count).to eq(3)
+        expect(task.queue("my_users").count_of_nodes).to eq(3)
+        expect(task.queue("my_users").nodes.where(kind: "head").first.nodable).to eq(user_a)
+        expect(task.queue("my_users").nodes.where(kind: "any").first.nodable).to eq(user_b)
+        expect(task.queue("my_users").nodes.where(kind: "tail").first.nodable).to eq(user_c)
       end
     end
   end
@@ -27,30 +40,49 @@ describe 'Concerns::QueableByName' do
       let(:nodable) { create(:user) }
 
       it 'expect queue to not be empty' do
-        a = create(:user)
-        b = create(:user)
+        user_a = create(:user)
+        user_b = create(:user)
+        user_c = create(:user)
 
         expect(task.queues.count).to eq(0)
 
-        task.queue("my_users").unshift(a)
-        task.queue("my_users").unshift(b)
+        task.queue("my_users").unshift(user_a)
+        expect(task.queue("my_users").nodes.count).to eq(1)
+        expect(task.queue("my_users").count_of_nodes).to eq(1)
+        expect(task.queue("my_users").nodes.where(kind: "head").first.nodable).to eq(user_a)
 
-        expect(task.queues.count).to eq(1)
+        task.queue("my_users").unshift(user_b)
         expect(task.queue("my_users").nodes.count).to eq(2)
-        expect(task.queue("my_users").head_node.nodable).to eq(b)
-        expect(task.queue("my_users").tail_node.nodable).to eq(a)
+        expect(task.queue("my_users").count_of_nodes).to eq(2)
+        expect(task.queue("my_users").nodes.where(kind: "head").first.nodable).to eq(user_b)
+        expect(task.queue("my_users").nodes.where(kind: "tail").first.nodable).to eq(user_a)
+
+        task.queue("my_users").unshift(user_c)
+        expect(task.queue("my_users").nodes.count).to eq(3)
+        expect(task.queue("my_users").count_of_nodes).to eq(3)
+        expect(task.queue("my_users").nodes.where(kind: "head").first.nodable).to eq(user_c)
+        expect(task.queue("my_users").nodes.where(kind: "any").first.nodable).to eq(user_b)
+        expect(task.queue("my_users").nodes.where(kind: "tail").first.nodable).to eq(user_a)
       end
     end
   end
 
   describe '#pop' do
     it "should return the first node in the queue sorted by field and nodable order" do
-      task.queue("cops").push(create(:user, name: "Edward"))
-      task.queue("cops").push(create(:user, name: "Amy"))
-      task.queue("cops").push(create(:user, name: "Bob"))
-      task.queue("cops").push(create(:user, name: "David"))
-      task.queue("cops").push(create(:user, name: "Cindy"))
-      task.queue("cops").push(create(:user, name: "Frank"))
+      edward = create(:user, name: "Edward")
+      amy = create(:user, name: "Amy")
+      bob = create(:user, name: "Bob")
+      david = create(:user, name: "David")
+      cindy = create(:user, name: "Cindy")
+      frank = create(:user, name: "Frank")
+
+      task.queue("cops")
+          .push(edward)
+          .push(amy)
+          .push(bob)
+          .push(david)
+          .push(cindy)
+          .push(frank)
 
       handle_time = {
         "Amy" => 0,
@@ -61,12 +93,29 @@ describe 'Concerns::QueableByName' do
         "Frank" => 0
       }
 
+      expect(task.queue("cops").nodes.count).to eq(6)
+      expect(task.queue("cops").count_of_nodes).to eq(6)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(edward)
+      any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+      expect(any).to include(amy)
+      expect(any).to include(bob)
+      expect(any).to include(david)
+      expect(any).to include(cindy)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(frank)
+
       result = task.queue("cops").pop(
         sort_exp: ->(u) { handle_time[u.name] },
         sort_order: :asc
       )
       expect(result.name).to eq("Edward")
       expect(task.queue("cops").nodes.count).to eq(5)
+      expect(task.queue("cops").count_of_nodes).to eq(5)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(amy)
+      any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+      expect(any).to include(cindy)
+      expect(any).to include(david)
+      expect(any).to include(bob)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(frank)
 
       result = task.queue("cops").pop(
         sort_exp: ->(u) { handle_time[u.name] },
@@ -74,23 +123,51 @@ describe 'Concerns::QueableByName' do
       )
       expect(result.name).to eq("Amy")
       expect(task.queue("cops").nodes.count).to eq(4)
+      expect(task.queue("cops").count_of_nodes).to eq(4)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+      any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+      expect(any).to include(cindy)
+      expect(any).to include(david)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(frank)
     end
 
     it "should return the first node in the queue sorted by field" do
-      task.queue("cops").push(create(:user, name: "John"))
-      task.queue("cops").push(create(:user, name: "Bob"))
+      john = create(:user, name: "John")
+      bob = create(:user, name: "Bob")
+      task.queue("cops")
+          .push(john)
+          .push(bob)
+
+      expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(bob)
 
       result = task.queue("cops").pop(
         sort_exp: :name,
         sort_order: :desc
       )
       expect(result.name).to eq("Bob")
+      expect(task.queue("cops").nodes.count).to eq(1)
+      expect(task.queue("cops").count_of_nodes).to eq(1)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
     end
 
     it "should sort the queue by the given sort expression and order and return the last value" do
-      task.queue("cops").push(create(:user, name: "Eric"))
-      task.queue("cops").push(create(:user, name: "Xia"))
-      task.queue("cops").push(create(:user, name: "John"))
+      eric = create(:user, name: "Eric")
+      xia = create(:user, name: "Xia")
+      john = create(:user, name: "John")
+
+      task.queue("cops")
+          .push(eric)
+          .push(xia)
+          .push(john)
+
+      expect(task.queue("cops").nodes.count).to eq(3)
+      expect(task.queue("cops").count_of_nodes).to eq(3)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(eric)
+      expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
 
       dobs = {
         "Xia" => Date.new(1992, 1, 1),
@@ -103,17 +180,35 @@ describe 'Concerns::QueableByName' do
         sort_order: :desc
       )
       expect(result.name).to eq("Eric")
+      expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
     end
 
     it "should return the last node in the queue that match the given filter expression" do
-      task.queue("cops").push(create(:user, name: "Bob"))
-      task.queue("cops").push(create(:user, name: "Xia"))
-      task.queue("cops").push(create(:user, name: "John"))
+      bob = create(:user, name: "Bob")
+      xia = create(:user, name: "Xia")
+      john = create(:user, name: "John")
+      task.queue("cops")
+          .push(bob)
+          .push(xia)
+          .push(john)
+
+      expect(task.queue("cops").nodes.count).to eq(3)
+      expect(task.queue("cops").count_of_nodes).to eq(3)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+      expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
 
       result = task.queue("cops").shift(
         filter_exp: ->(u) { u.name != "John" }
       )
       expect(result.name).to eq("Bob")
+      expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
     end
 
     it "should emit callback" do
@@ -133,12 +228,20 @@ describe 'Concerns::QueableByName' do
 
   describe '#shift' do
     it "should return the first node in the queue sorted by field and nodable order" do
-      task.queue("cops").push(create(:user, name: "Edward"))
-      task.queue("cops").push(create(:user, name: "Amy"))
-      task.queue("cops").push(create(:user, name: "Bob"))
-      task.queue("cops").push(create(:user, name: "David"))
-      task.queue("cops").push(create(:user, name: "Cindy"))
-      task.queue("cops").push(create(:user, name: "Frank"))
+      edward = create(:user, name: "Edward")
+      amy = create(:user, name: "Amy")
+      bob = create(:user, name: "Bob")
+      david = create(:user, name: "David")
+      cindy = create(:user, name: "Cindy")
+      frank = create(:user, name: "Frank")
+
+      task.queue("cops")
+          .push(edward)
+          .push(amy)
+          .push(bob)
+          .push(david)
+          .push(cindy)
+          .push(frank)
 
       handle_time = {
         "Amy" => 0,
@@ -149,12 +252,29 @@ describe 'Concerns::QueableByName' do
         "Frank" => 0
       }
 
+      expect(task.queue("cops").nodes.count).to eq(6)
+      expect(task.queue("cops").count_of_nodes).to eq(6)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(edward)
+      any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+      expect(any).to include(amy)
+      expect(any).to include(bob)
+      expect(any).to include(david)
+      expect(any).to include(cindy)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(frank)
+
       result = task.queue("cops").shift(
         sort_exp: ->(u) { handle_time[u.name] },
         sort_order: :asc
       )
       expect(result.name).to eq("Amy")
       expect(task.queue("cops").nodes.count).to eq(5)
+      expect(task.queue("cops").count_of_nodes).to eq(5)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(edward)
+      any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+      expect(any).to include(cindy)
+      expect(any).to include(david)
+      expect(any).to include(bob)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(frank)
 
       result = task.queue("cops").shift(
         sort_exp: ->(u) { handle_time[u.name] },
@@ -162,23 +282,44 @@ describe 'Concerns::QueableByName' do
       )
       expect(result.name).to eq("Edward")
       expect(task.queue("cops").nodes.count).to eq(4)
+      expect(task.queue("cops").count_of_nodes).to eq(4)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+      any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+      expect(any).to include(cindy)
+      expect(any).to include(david)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(frank)
     end
 
     it "should return the first node in the queue sorted by field" do
-      task.queue("cops").push(create(:user, name: "John"))
-      task.queue("cops").push(create(:user, name: "Bob"))
+      john = create(:user, name: "John")
+      bob = create(:user, name: "Bob")
+      task.queue("cops")
+          .push(john)
+          .push(bob)
+
+      expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(bob)
 
       result = task.queue("cops").shift(
         sort_exp: :name,
         sort_order: :desc
       )
       expect(result.name).to eq("John")
+      expect(task.queue("cops").nodes.count).to eq(1)
+      expect(task.queue("cops").count_of_nodes).to eq(1)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
     end
 
     it "should sort the queue by the given sort expression and order and return the last value" do
-      task.queue("cops").push(create(:user, name: "Eric"))
-      task.queue("cops").push(create(:user, name: "Xia"))
-      task.queue("cops").push(create(:user, name: "John"))
+      eric = create(:user, name: "Eric")
+      xia = create(:user, name: "Xia")
+      john = create(:user, name: "John")
+      task.queue("cops")
+          .push(eric)
+          .push(xia)
+          .push(john)
 
       dobs = {
         "Xia" => Date.new(1992, 1, 1),
@@ -186,22 +327,113 @@ describe 'Concerns::QueableByName' do
         "John" => Date.new(1991, 1, 1)
       }
 
+      expect(task.queue("cops").nodes.count).to eq(3)
+      expect(task.queue("cops").count_of_nodes).to eq(3)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(eric)
+      expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
+
       result = task.queue("cops").shift(
         sort_exp: ->(u) { dobs[u.name] },
         sort_order: :asc
       )
       expect(result.name).to eq("Eric")
+      expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
     end
 
     it "should return the first node in the queue that match the given filter expression" do
-      task.queue("cops").push(create(:user, name: "Bob"))
-      task.queue("cops").push(create(:user, name: "Xia"))
-      task.queue("cops").push(create(:user, name: "John"))
+      bob = create(:user, name: "Bob")
+      xia = create(:user, name: "Xia")
+      john = create(:user, name: "John")
+      task.queue("cops")
+          .push(bob)
+          .push(xia)
+          .push(john)
 
       result = task.queue("cops").shift(
         filter_exp: ->(u) { u.name != "John" }
       )
       expect(result.name).to eq("Bob")
+      expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
+      expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(xia)
+      expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(john)
+    end
+
+    context "when there are 2 nodes in the queue" do
+      it "should mark the remaining item as the head node" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(bob)
+
+        task.queue("cops").shift
+        expect(task.queue("cops").nodes.count).to eq(1)
+        expect(task.queue("cops").count_of_nodes).to eq(1)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+      end
+    end
+
+    context "when there are 3 nodes in the queue" do
+      it "should mark the remaining item as the head node" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+
+        task.queue("cops").shift
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+      end
+    end
+
+    context "when there are 4 nodes in the queue" do
+      it "should mark the remaining item as the head node" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        david = create(:user, name: "David")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+            .push(david)
+
+        expect(task.queue("cops").nodes.count).to eq(4)
+        expect(task.queue("cops").count_of_nodes).to eq(4)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+        expect(any).to include(bob)
+        expect(any).to include(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+
+        task.queue("cops").shift
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+      end
     end
   end
 
@@ -327,6 +559,7 @@ describe 'Concerns::QueableByName' do
       )
       expect(result.name).to eq("Amy")
       expect(task.queue("cops").nodes.count).to eq(6)
+      expect(task.queue("cops").count_of_nodes).to eq(6)
     end
 
     it "should return the first node in the queue sorted by field" do
@@ -339,6 +572,7 @@ describe 'Concerns::QueableByName' do
       )
       expect(result.name).to eq("John")
       expect(task.queue("cops").nodes.count).to eq(2)
+      expect(task.queue("cops").count_of_nodes).to eq(2)
     end
 
     it "should sort the queue by the given sort expression and order and return the last value" do
@@ -387,24 +621,258 @@ describe 'Concerns::QueableByName' do
     it "should remove the nodable from the queue" do
       john = create(:user, name: "John")
       bob = create(:user, name: "Bob")
-      task.queue("cops").push(john)
-      task.queue("cops").push(bob)
+      task.queue("cops")
+          .push(john)
+          .push(bob)
 
       task.queue("cops").remove(john)
       expect(task.queue("cops").nodes.count).to eq(1)
+      expect(task.queue("cops").count_of_nodes).to eq(1)
     end
 
     it "should emit callback" do
       john = create(:user, name: "John")
       bob = create(:user, name: "Bob")
-      task.queue("cops").push(john)
-      task.queue("cops").push(bob)
+      task.queue("cops")
+          .push(john)
+          .push(bob)
 
       queue_callback = double("QueueCallback")
       expect(queue_callback).to receive(:call).once
       expect(QueueIt).to receive(:queue_callback).and_return(queue_callback).twice
       task.queue("cops").remove(john)
       expect(task.queue("cops").nodes.count).to eq(1)
+      expect(task.queue("cops").count_of_nodes).to eq(1)
+    end
+
+    context "when there are 2 nodes in the queue and remove on the first item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(bob)
+
+        task.queue("cops").remove(john)
+        expect(task.queue("cops").nodes.count).to eq(1)
+        expect(task.queue("cops").count_of_nodes).to eq(1)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+      end
+    end
+
+    context "when there are 2 nodes in the queue and remove on the last item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(bob)
+
+        task.queue("cops").remove(bob)
+        expect(task.queue("cops").nodes.count).to eq(1)
+        expect(task.queue("cops").count_of_nodes).to eq(1)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+      end
+    end
+
+    context "when there are 3 nodes in the queue and remove on the first item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+
+        task.queue("cops").remove(john)
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+      end
+    end
+
+    context "when there are 3 nodes in the queue and remove on the last item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+
+        task.queue("cops").remove(cindy)
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(bob)
+      end
+    end
+
+    context "when there are 3 nodes in the queue and remove on the middle item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+
+        task.queue("cops").remove(bob)
+        expect(task.queue("cops").nodes.count).to eq(2)
+        expect(task.queue("cops").count_of_nodes).to eq(2)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+      end
+    end
+
+    context "when there are 4 nodes in the queue and remove on the first item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        david = create(:user, name: "David")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+            .push(david)
+
+        expect(task.queue("cops").nodes.count).to eq(4)
+        expect(task.queue("cops").count_of_nodes).to eq(4)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+        any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+        expect(any).to include(bob)
+        expect(any).to include(cindy)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+
+        task.queue("cops").remove(john)
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+      end
+    end
+
+    context "when there are 4 nodes in the queue and remove on the last item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        david = create(:user, name: "David")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+            .push(david)
+
+        expect(task.queue("cops").nodes.count).to eq(4)
+        expect(task.queue("cops").count_of_nodes).to eq(4)
+
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+        expect(any).to include(bob)
+        expect(any).to include(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+
+        task.queue("cops").remove(david)
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(cindy)
+      end
+    end
+
+    context "when there are 4 nodes in the queue and remove on the second item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        david = create(:user, name: "David")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+            .push(david)
+
+        expect(task.queue("cops").nodes.count).to eq(4)
+        expect(task.queue("cops").count_of_nodes).to eq(4)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+        expect(any).to include(bob)
+        expect(any).to include(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+
+        task.queue("cops").remove(bob)
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+      end
+    end
+
+    context "when there are 4 nodes in the queue and remove on the third item" do
+      it "should leave remaining node as kind as head" do
+        john = create(:user, name: "John")
+        bob = create(:user, name: "Bob")
+        cindy = create(:user, name: "Cindy")
+        david = create(:user, name: "David")
+        task.queue("cops")
+            .push(john)
+            .push(bob)
+            .push(cindy)
+            .push(david)
+
+        expect(task.queue("cops").nodes.count).to eq(4)
+        expect(task.queue("cops").count_of_nodes).to eq(4)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        any = task.queue("cops").nodes.where(kind: "any").map(&:nodable)
+        expect(any).to include(bob)
+        expect(any).to include(cindy)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+
+        task.queue("cops").remove(cindy)
+        expect(task.queue("cops").nodes.count).to eq(3)
+        expect(task.queue("cops").count_of_nodes).to eq(3)
+        expect(task.queue("cops").nodes.where(kind: "head").first.nodable).to eq(john)
+        expect(task.queue("cops").nodes.where(kind: "any").first.nodable).to eq(bob)
+        expect(task.queue("cops").nodes.where(kind: "tail").first.nodable).to eq(david)
+      end
     end
   end
 
