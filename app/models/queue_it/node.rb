@@ -9,7 +9,7 @@ module QueueIt
             foreign_key: 'parent_node_id',
             inverse_of: :parent_node
 
-    enum kind: { head: 0, any: 1, tail: 2 }
+    enum :kind, { head: 0, any: 1, tail: 2 }
 
     validate :only_one_head, :only_one_tail
 
